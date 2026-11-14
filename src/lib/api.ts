@@ -37,16 +37,22 @@ let accessToken: string | null = null;
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 type Listener = () => void;
 const onSessionLost: Listener[] = [];
+const onTokenChange: ((token: string | null) => void)[] = [];
 
 export const tokenStore = {
   get: () => accessToken,
   set(token: string | null, expiresInSeconds?: number) {
     accessToken = token;
+    onTokenChange.slice().forEach((fn) => fn(token));
     if (refreshTimer) clearTimeout(refreshTimer);
     if (token && expiresInSeconds && typeof window !== "undefined") {
       // Renew a minute early so users are never interrupted by an expired token.
       refreshTimer = setTimeout(() => { void refreshAccessToken().catch(() => {}); }, Math.max(15, expiresInSeconds - 60) * 1000);
     }
+  },
+  onChange(fn: (token: string | null) => void) {
+    onTokenChange.push(fn);
+    return () => { const i = onTokenChange.indexOf(fn); if (i >= 0) onTokenChange.splice(i, 1); };
   },
   onSessionLost(fn: Listener) {
     onSessionLost.push(fn);

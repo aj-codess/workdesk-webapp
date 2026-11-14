@@ -1,11 +1,12 @@
 "use client";
 import Link from "next/link";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { get } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { P } from "@/lib/permissions";
 import type { DeptDash, MyRequestsDash, MyWorkDash, SystemDash } from "@/lib/types";
-import { Card, EmptyState, ErrorState, LinkButton, Skeleton } from "@/components/ui";
+import { Button, Card, EmptyState, ErrorState, LinkButton, Skeleton } from "@/components/ui";
 import { BarList, Stat } from "@/components/stats";
 import { TicketTable } from "@/components/tickets/ticket-table";
 import { STATUS_LABEL, PRIORITY_LABEL, fmtHours, fullName } from "@/lib/format";
@@ -121,7 +122,8 @@ function System() {
 }
 
 export default function DashboardPage() {
-  const { can, user } = useAuth();
+  const { can, user, reload } = useAuth();
+  const [checking, setChecking] = useState(false);
   const sections = [can(P.tViewAll) && "system", can(P.tViewDept) && "department", can(P.tViewAssigned) && "work", can(P.tViewOwn) && "mine"].filter(Boolean);
   return (
     <>
@@ -131,7 +133,7 @@ export default function DashboardPage() {
         {can(P.tViewDept) && <Department />}
         {can(P.tViewAssigned) && <MyWork />}
         {can(P.tViewOwn) && <MyRequests />}
-        {!sections.length && <Card><EmptyState title="Nothing to show yet" text={can(...TICKET_VIEW) ? "" : "Your account has no dashboard permissions. Use the menu on the left for the areas you can open."} /></Card>}
+        {!sections.length && <Card><EmptyState title="Nothing to show yet" text={can(...TICKET_VIEW) ? "" : "Your account has no dashboard permissions. If an administrator just changed your roles, check again."} action={<Button loading={checking} onClick={async () => { setChecking(true); await reload(); setChecking(false); }}>Check again</Button>} /></Card>}
       </div>
     </>
   );

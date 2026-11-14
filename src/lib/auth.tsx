@@ -22,6 +22,10 @@ interface AuthCtx {
   clearEndedReason: () => void;
 }
 
+function subjectOf(token: string): string | null {
+  try { return (JSON.parse(atob(token.split(".")[1]!.replace(/-/g, "+").replace(/_/g, "/"))) as { sub?: string }).sub ?? null; } catch { return null; }
+}
+
 const Ctx = createContext<AuthCtx | null>(null);
 const EMPTY: ReadonlySet<string> = new Set();
 
@@ -73,6 +77,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.addEventListener("workdesk:permissions-stale", h);
     return () => window.removeEventListener("workdesk:permissions-stale", h);
   }, [reload]);
+
+  // The refresh cookie is shared by every tab of a browser. If another tab signs in as someone else, this tab's next
+  // token renewal belongs to that user. Detect it and switch identity instead of showing one user and acting as another.
+  const userId = me?.user.id;
+  useEffect(() => {
+    if (!userId) return;
+    return tokenStore.onChange((token) => {
+      const sub = token ? subjectOf(token) : null;
+      if (sub && sub !== userId) { void reload(); }
+    });
+  }, [userId, reload]);
 
   const login = useCallback(async (email: string, password: string) => {
     const r = await post<LoginResult>("/api/auth/login", { email, password });
